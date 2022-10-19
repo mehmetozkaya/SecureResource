@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using System.Net.Http.Json;
 
 namespace Movies.Client.ApiServices
 {
@@ -95,28 +96,58 @@ namespace Movies.Client.ApiServices
 
         }
 
-        public Task<Movie> GetMovie(string id)
+        public async Task<Movie> GetMovie(int? id)
         {
-            throw new NotImplementedException();
+            var httpClient = _httpClientFactory.CreateClient("MovieAPIClient");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"/movies/{id}");
+
+            var response = await httpClient.SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead)
+                .ConfigureAwait(false);
+
+
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+            var movie = JsonConvert.DeserializeObject<Movie>(content);
+
+            return movie;
         }
 
-        public Task<Movie> CreateMovie(Movie movie)
+        public async Task<Movie> CreateMovie(Movie movie)
         {
-            throw new NotImplementedException();
+            if (movie == null) throw new Exception("The body of request must be not empty");
+
+            var httpClient = _httpClientFactory.CreateClient("MovieAPIClient");
+            var response = await httpClient.PostAsJsonAsync("/movies", movie);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            var newMovie = JsonConvert.DeserializeObject<Movie>(content);
+
+            return newMovie;
         }
 
-        public Task<Movie> UpdateMovie(Movie movie)
+        public async Task<Movie> UpdateMovie(int? id, Movie movie)
         {
-            throw new NotImplementedException();
+            if (movie == null) throw new Exception("The body of request must be not empty");
+
+            var httpClient = _httpClientFactory.CreateClient("MovieAPIClient");
+            var response = await httpClient.PutAsJsonAsync($"/movies/{id}", movie);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            var editedMovie = JsonConvert.DeserializeObject<Movie>(content);
+
+            return editedMovie;
         }
 
-        public Task DeleteMovie(int id)
+        public async Task DeleteMovie(int id)
         {
-            throw new NotImplementedException();
+            var httpClient = _httpClientFactory.CreateClient("MovieAPIClient");
+            await httpClient.DeleteAsync($"/movies/{id}");
         }
 
         public async Task<UserInfoViewModel> GetUserInfo()
-        {           
+        {
             var idpClient = _httpClientFactory.CreateClient("IDPClient");
 
             var metaDataResponse = await idpClient.GetDiscoveryDocumentAsync();
@@ -128,7 +159,7 @@ namespace Movies.Client.ApiServices
 
             var accessToken = await _httpContextAccessor
                 .HttpContext.GetTokenAsync(OpenIdConnectParameterNames.AccessToken);
-            
+
             var userInfoResponse = await idpClient.GetUserInfoAsync(
                new UserInfoRequest
                {
@@ -140,7 +171,7 @@ namespace Movies.Client.ApiServices
             {
                 throw new HttpRequestException("Something went wrong while getting user info");
             }
-            
+
             var userInfoDictionary = new Dictionary<string, string>();
 
             foreach (var claim in userInfoResponse.Claims)
